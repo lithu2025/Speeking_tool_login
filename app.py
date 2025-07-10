@@ -2,21 +2,26 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 import os
 import re
 import bcrypt
+import json
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from bs4 import BeautifulSoup
 
 app = Flask(__name__)
-app.secret_key = 'super_secret_key'  # Required for flash messages and sessions
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'super_secret_key')  # Use env var for production
 
 UPLOAD_FOLDER = 'Uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Google Sheets API credentials setup
-creds = Credentials.from_service_account_file(
-    r'C:\Users\digit\Desktop\lithu1\service-account-file.json',
+creds_json = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
+if not creds_json:
+    raise ValueError("Google Sheets credentials not found in environment variable")
+creds_dict = json.loads(creds_json)
+creds = Credentials.from_service_account_info(
+    creds_dict,
     scopes=['https://www.googleapis.com/auth/spreadsheets']
 )
 service = build('sheets', 'v4', credentials=creds)
@@ -26,29 +31,37 @@ USERS_SHEET_ID = '16RkB_V1DVSJqdtmDqiqKGPfkHdBVFjAjyPYLeywsBf4'
 
 def get_users_data():
     """
-    Fetch user data (username, hashed password, sheet ID) from the Users Google Sheet.
+    Fetch user data from the Users Google Sheet.
     """
     try:
         sheet = service.spreadsheets()
-        result = sheet.values().get(spreadsheetId=USERS_SHEET_ID, range="Sheet1!A2:C").execute()
+        result = sheet.values().get(spreadsheetId=USERS_SHEET_ID, range="Sheet1!A2:G").execute()
         values = result.get('values', [])
-        return [{'username': row[0], 'password': row[1], 'sheet_id': row[2]} for row in values if len(row) >= 3]
+        return [{
+            'username': row[0],
+            'password': row[1],
+            'sheet_id': row[2],
+            'email': row[3] if len(row) > 3 else '',
+            'first_name': row[4] if len(row) > 4 else '',
+            'last_name': row[5] if len(row) > 5 else '',
+            'role': row[6] if len(row) > 6 else 'user'
+        } for row in values if len(row) >= 3]
     except HttpError as err:
         print(f"Error fetching users data: {err}")
         return []
 
-def add_user_to_sheet(username, password, sheet_id):
+def add_user_to_sheet(username, password, sheet_id, email, first_name, last_name, role):
     """
-    Add a new user to the Users Google Sheet with hashed password.
+    Add a new user to the Users Google Sheet with hashed password and additional fields.
     """
     try:
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         sheet = service.spreadsheets()
         sheet.values().append(
             spreadsheetId=USERS_SHEET_ID,
-            range="Sheet1!A2:C",
+            range="Sheet1!A2:G",
             valueInputOption="RAW",
-            body={"values": [[username, hashed_password, sheet_id]]}
+            body={"values": [[username, hashed_password, sheet_id, email, first_name, last_name, role]]}
         ).execute()
         return True
     except HttpError as err:
@@ -76,27 +89,46 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     """
-    Handles user registration by adding credentials and Sheet ID to Users Google Sheet.
+    Handles user registration with extended fields.
     """
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
         sheet_id = request.form.get('sheet_id')
+        email = request.form.get('email')
+        first_name = request.form.get('first_name')
+        last_name = request.form.get('last_name')
+        role = request.form.get('role', 'user')  # Default to 'user'
 
-        if not username or not password or not sheet_id:
-            flash('Please fill in all fields', 'error')
+        # Validate inputs
+        if not all([username, password, sheet_id, email, first_name, last_name]):
+            flash('Please fill in all required fields', 'error')
+            return redirect(url_for('register'))
+
+        # Validate email format
+        email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+        if not re.match(email_regex, email):
+            flash('Invalid email format', 'error')
+            return redirect(url_for('register'))
+
+        # Validate role
+        if role not in ['user', 'admin']:
+            flash('Invalid role selected', 'error')
             return redirect(url_for('register'))
 
         users = get_users_data()
         if any(user['username'] == username for user in users):
             flash('Username already exists', 'error')
             return redirect(url_for('register'))
+        if any(user['email'] == email for user in users):
+            flash('Email already registered', 'error')
+            return redirect(url_for('register'))
 
-        if add_user_to_sheet(username, password, sheet_id):
+        if add_user_to_sheet(username, password, sheet_id, email, first_name, last_name, role):
             flash('Registration successful! Please log in.', 'success')
             return redirect(url_for('login'))
         else:
-            return redirect(url_for('register'))  # Flash message set in add_user_to_sheet
+            return redirect(url_for('register'))
 
     return render_template('register.html')
 
@@ -104,7 +136,6 @@ def register():
 def handle_login():
     """
     Handles login by validating against Users Google Sheet.
-    Stores user-specific Sheet ID in session.
     """
     username = request.form.get('username')
     password = request.form.get('password')
@@ -118,8 +149,9 @@ def handle_login():
         if user['username'] == username and bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
             session['username'] = username
             session['sheet_id'] = user['sheet_id']
+            session['role'] = user['role']
             return redirect(url_for('index'))
-    
+
     flash('Invalid username or password', 'error')
     return redirect(url_for('login'))
 
@@ -177,7 +209,6 @@ def process_file_and_get_data(filepath):
         orders = soup.select("li.bg-white")
 
         for order in orders:
-            # Extract status from div.ps-3.text-danger.text-upper.text-uppercase.fw-bold
             status = ""
             status_elem = order.select_one("div.ps-3.text-danger.text-upper.text-uppercase.fw-bold")
             if status_elem:
@@ -189,7 +220,6 @@ def process_file_and_get_data(filepath):
             if not status:
                 print(f"No status found in {filepath}")
 
-            # Extract set status
             set_status = ""
             set_elem = order.select_one("div.bg-warning.border.border-white.mt-1.ps-3.rounded-2.rounded-pill")
             if set_elem:
@@ -202,7 +232,6 @@ def process_file_and_get_data(filepath):
                     set_status = f"merge order {merge_order_counter}"
                     previous_merge_order = "merge order"
 
-            # Extract other order details
             customer_blocks = order.select("div.col-2.small")
             customer = customer_blocks[1].get_text(" ", strip=True) if len(customer_blocks) > 1 else ""
             address_elem = order.select_one("div.fs-6")
@@ -213,7 +242,6 @@ def process_file_and_get_data(filepath):
             price_elem = order.select_one("div.text-end span span:nth-child(2)")
             price = price_elem.get_text(strip=True) if price_elem else ""
 
-            # Product info extraction
             product_divs = order.select("div.p-1[id$='-li']")
             for product_div in product_divs:
                 try:
@@ -307,4 +335,5 @@ def write_to_google_sheets(data, sheet_id):
         flash('Failed to upload data to Google Sheet', 'error')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
