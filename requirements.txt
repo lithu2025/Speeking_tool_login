@@ -1,0 +1,9 @@
+Flask==3.0.1
+gunicorn==23.0.0
+google-auth==2.35.0
+google-auth-httplib2==0.2.0
+google-api-python-client==2.149.0
+beautifulsoup4==4.12.3
+bcrypt==3.2.2
+pyOpenSSL==24.1.0
+certifi==2023.7.22
