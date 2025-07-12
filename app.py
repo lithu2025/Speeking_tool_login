@@ -1,5 +1,5 @@
 import os
-import toml
+import json
 import bcrypt
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from google.oauth2 import service_account
@@ -8,33 +8,33 @@ from googleapiclient.errors import HttpError
 from bs4 import BeautifulSoup
 
 app = Flask(__name__)
-app.secret_key = 'super_secret_key'  # Required for flash messages and session
+app.secret_key = 'super_secret_key'  # Required for flash messages and sessions
 
 UPLOAD_FOLDER = 'Uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Fetch Google credentials from environment variable
-credentials_data_str = os.getenv("GOOGLE_CREDENTIALS_JSON")
+credentials_json_str = os.getenv("GOOGLE_CREDENTIALS_JSON")
 
 # Debugging: Check if credentials are found
-if not credentials_data_str:
+if not credentials_json_str:
     print("Error: GOOGLE_CREDENTIALS_JSON is not set correctly in your environment variables")
 else:
     print("GOOGLE_CREDENTIALS_JSON found, proceeding...")
 
-# Load the credentials from TOML format
+# Load the credentials from JSON
 creds = None
-if credentials_data_str:
+if credentials_json_str:
     try:
-        credentials_data = toml.loads(credentials_data_str)
+        credentials_info = json.loads(credentials_json_str)
         creds = service_account.Credentials.from_service_account_info(
-            credentials_data["google_credentials"],
-            scopes=['https://www.googleapis.com/auth/spreadsheets']
+            credentials_info,
+            scopes=['[invalid url, do not cite]
         )
         print("Successfully loaded credentials.")
     except Exception as e:
-        print(f"Error loading credentials from TOML: {e}")
+        print(f"Error loading credentials from JSON: {e}")
 else:
     print("Unable to load credentials. Please ensure GOOGLE_CREDENTIALS_JSON is set correctly.")
 
@@ -152,7 +152,7 @@ def index():
     if 'username' not in session:
         flash('Please log in to access this page', 'error')
         return redirect(url_for('login'))
-    sheet_url = f"https://docs.google.com/spreadsheets/d/{session['sheet_id']}/edit"
+    sheet_url = f"[invalid url, do not cite]
     return render_template('index.html', sheet_url=sheet_url)
 
 @app.route('/upload', methods=['POST'])
