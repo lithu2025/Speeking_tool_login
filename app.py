@@ -1,8 +1,8 @@
-import os
-import json
-import bcrypt
 from flask import Flask, render_template, request, redirect, url_for, flash, session
-from google.oauth2 import service_account
+import os
+import re
+import bcrypt
+from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from bs4 import BeautifulSoup
@@ -14,35 +14,11 @@ UPLOAD_FOLDER = 'Uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Fetch Google credentials from environment variable
-credentials_json_str = os.getenv("GOOGLE_CREDENTIALS_JSON")
-
-# Debugging: Check if credentials are found
-if not credentials_json_str:
-    print("Error: GOOGLE_CREDENTIALS_JSON is not set correctly in your environment variables")
-else:
-    print("GOOGLE_CREDENTIALS_JSON found, proceeding...")
-
-# Load the credentials from JSON
-creds = None
-if credentials_json_str:
-    try:
-        credentials_info = json.loads(credentials_json_str)
-        creds = service_account.Credentials.from_service_account_info(
-            credentials_info,
-            scopes=['[invalid url, do not cite]']  # Corrected: Proper string and list closure
-        )
-        print("Successfully loaded credentials.")
-    except Exception as e:
-        print(f"Error loading credentials from JSON: {e}")
-else:
-    print("Unable to load credentials. Please ensure GOOGLE_CREDENTIALS_JSON is set correctly.")
-
-# Ensure creds is set before trying to use it
-if creds is None:
-    raise ValueError("Google credentials are not set properly. Check your environment variables.")
-
-# Google Sheets API service
+# Google Sheets API credentials setup
+creds = Credentials.from_service_account_file(
+    r'C:\Users\digit\Desktop\lithu1 - Copy\service-account-file.json',
+    scopes=['https://www.googleapis.com/auth/spreadsheets']
+)
 service = build('sheets', 'v4', credentials=creds)
 
 # Users Google Sheet ID
@@ -152,7 +128,7 @@ def index():
     if 'username' not in session:
         flash('Please log in to access this page', 'error')
         return redirect(url_for('login'))
-    sheet_url = f"[invalid url, do not cite]"
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{session['sheet_id']}/edit"
     return render_template('index.html', sheet_url=sheet_url)
 
 @app.route('/upload', methods=['POST'])
@@ -161,7 +137,7 @@ def upload_file():
     Handles file upload and writes data to the user's specific Google Sheet.
     """
     if 'username' not in session:
-        flash('Please Kids log in to access this page', 'error')
+        flash('Please log in to access this page', 'error')
         return redirect(url_for('login'))
 
     files = request.files.getlist("file")
@@ -206,8 +182,12 @@ def process_file_and_get_data(filepath):
             status_elem = order.select_one("div.ps-3.text-danger.text-upper.text-uppercase.fw-bold")
             if status_elem:
                 text = status_elem.get_text(strip=True).lower()
+                print(f"Checking element text for status in {filepath}: {text}")
                 if text in ["firstclass", "international"]:
                     status = text
+                    print(f"Found status in {filepath}: {status}")
+            if not status:
+                print(f"No status found in {filepath}")
 
             # Extract set status
             set_status = ""
@@ -225,7 +205,6 @@ def process_file_and_get_data(filepath):
             # Extract other order details
             customer_blocks = order.select("div.col-2.small")
             customer = customer_blocks[1].get_text(" ", strip=True) if len(customer_blocks) > 1 else ""
-
             address_elem = order.select_one("div.fs-6")
             address = address_elem.get_text(" ", strip=True) if address_elem else ""
             platform_elem = order.select_one("div.bg-light.border")
@@ -286,6 +265,7 @@ def process_file_and_get_data(filepath):
                         data.append([title, sku, adjusted_qty, "", "", "",
                                      price, link, customer, address, platform, status,
                                      main_img_url, set_status, component_info])
+                        print(f"Appending data for {filepath}: Status = {status}")
 
                 except Exception as e:
                     print(f"Error parsing a product in {filepath}: {e}")
