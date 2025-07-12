@@ -24,6 +24,7 @@ else:
     print("GOOGLE_CREDENTIALS_JSON found, proceeding...")
 
 # Load the credentials from TOML format
+creds = None
 if credentials_data_str:
     try:
         credentials_data = toml.loads(credentials_data_str)
@@ -36,6 +37,10 @@ if credentials_data_str:
         print(f"Error loading credentials from TOML: {e}")
 else:
     print("Unable to load credentials, please check your Streamlit Secrets.")
+
+# Ensure creds is set before trying to use it
+if creds is None:
+    raise ValueError("Google credentials are not set properly. Check Streamlit Secrets.")
 
 # Google Sheets API service
 service = build('sheets', 'v4', credentials=creds)
