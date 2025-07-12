@@ -30,7 +30,7 @@ if credentials_json_str:
         credentials_info = json.loads(credentials_json_str)
         creds = service_account.Credentials.from_service_account_info(
             credentials_info,
-            scopes=['[invalid url, do not cite]
+            scopes=['[invalid url, do not cite]  # Ensure this string is properly closed
         )
         print("Successfully loaded credentials.")
     except Exception as e:
