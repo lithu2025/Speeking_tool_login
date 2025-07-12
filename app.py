@@ -8,7 +8,7 @@ from googleapiclient.errors import HttpError
 from bs4 import BeautifulSoup
 
 app = Flask(__name__)
-app.secret_key = 'super_secret_key'  # Required for flash messages and sessions
+app.secret_key = 'super_secret_key'  # Required for flash messages and session
 
 UPLOAD_FOLDER = 'Uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
