@@ -14,12 +14,12 @@ UPLOAD_FOLDER = 'Uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Fetch Google credentials from Streamlit Secrets (Environment variable)
+# Fetch Google credentials from environment variable
 credentials_data_str = os.getenv("GOOGLE_CREDENTIALS_JSON")
 
-# Debugging: Check if credentials are found in Streamlit Secrets
+# Debugging: Check if credentials are found
 if not credentials_data_str:
-    print("Error: GOOGLE_CREDENTIALS_JSON is not set correctly in Streamlit Secrets")
+    print("Error: GOOGLE_CREDENTIALS_JSON is not set correctly in your environment variables")
 else:
     print("GOOGLE_CREDENTIALS_JSON found, proceeding...")
 
@@ -36,11 +36,11 @@ if credentials_data_str:
     except Exception as e:
         print(f"Error loading credentials from TOML: {e}")
 else:
-    print("Unable to load credentials, please check your Streamlit Secrets.")
+    print("Unable to load credentials. Please ensure GOOGLE_CREDENTIALS_JSON is set correctly.")
 
 # Ensure creds is set before trying to use it
 if creds is None:
-    raise ValueError("Google credentials are not set properly. Check Streamlit Secrets.")
+    raise ValueError("Google credentials are not set properly. Check your environment variables.")
 
 # Google Sheets API service
 service = build('sheets', 'v4', credentials=creds)
