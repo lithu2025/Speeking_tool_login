@@ -152,7 +152,7 @@ def index():
     if 'username' not in session:
         flash('Please log in to access this page', 'error')
         return redirect(url_for('login'))
-    sheet_url = f"[invalid url, do not cite]
+    sheet_url = f"[invalid url, do not cite]"
     return render_template('index.html', sheet_url=sheet_url)
 
 @app.route('/upload', methods=['POST'])
@@ -225,7 +225,7 @@ def process_file_and_get_data(filepath):
             # Extract other order details
             customer_blocks = order.select("div.col-2.small")
             customer = customer_blocks[1].get_text(" ", strip=True) if len(customer_blocks) > 1 else ""
-遵
+
             address_elem = order.select_one("div.fs-6")
             address = address_elem.get_text(" ", strip=True) if address_elem else ""
             platform_elem = order.select_one("div.bg-light.border")
