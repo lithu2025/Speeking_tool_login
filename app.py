@@ -1,10 +1,10 @@
 import os
+import toml
 import bcrypt
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-import toml
 from bs4 import BeautifulSoup
 
 app = Flask(__name__)
@@ -15,11 +15,27 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Fetch Google credentials from Streamlit Secrets (Environment variable)
-credentials_data = toml.loads(os.getenv("GOOGLE_CREDENTIALS_JSON"))
-creds = service_account.Credentials.from_service_account_info(
-    credentials_data["google_credentials"],
-    scopes=['https://www.googleapis.com/auth/spreadsheets']
-)
+credentials_data_str = os.getenv("GOOGLE_CREDENTIALS_JSON")
+
+# Debugging: Check if credentials are found in Streamlit Secrets
+if not credentials_data_str:
+    print("Error: GOOGLE_CREDENTIALS_JSON is not set correctly in Streamlit Secrets")
+else:
+    print("GOOGLE_CREDENTIALS_JSON found, proceeding...")
+
+# Load the credentials from TOML format
+if credentials_data_str:
+    try:
+        credentials_data = toml.loads(credentials_data_str)
+        creds = service_account.Credentials.from_service_account_info(
+            credentials_data["google_credentials"],
+            scopes=['https://www.googleapis.com/auth/spreadsheets']
+        )
+        print("Successfully loaded credentials.")
+    except Exception as e:
+        print(f"Error loading credentials from TOML: {e}")
+else:
+    print("Unable to load credentials, please check your Streamlit Secrets.")
 
 # Google Sheets API service
 service = build('sheets', 'v4', credentials=creds)
