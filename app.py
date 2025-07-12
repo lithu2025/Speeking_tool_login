@@ -1,10 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
 import os
-import re
 import bcrypt
-from google.oauth2.service_account import Credentials
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+import toml
 from bs4 import BeautifulSoup
 
 app = Flask(__name__)
@@ -14,11 +14,14 @@ UPLOAD_FOLDER = 'Uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Google Sheets API credentials setup
-creds = Credentials.from_service_account_file(
-    r'C:\Users\digit\Desktop\lithu1\service-account-file.json',
+# Fetch Google credentials from Streamlit Secrets (Environment variable)
+credentials_data = toml.loads(os.getenv("GOOGLE_CREDENTIALS_JSON"))
+creds = service_account.Credentials.from_service_account_info(
+    credentials_data["google_credentials"],
     scopes=['https://www.googleapis.com/auth/spreadsheets']
 )
+
+# Google Sheets API service
 service = build('sheets', 'v4', credentials=creds)
 
 # Users Google Sheet ID
@@ -182,12 +185,8 @@ def process_file_and_get_data(filepath):
             status_elem = order.select_one("div.ps-3.text-danger.text-upper.text-uppercase.fw-bold")
             if status_elem:
                 text = status_elem.get_text(strip=True).lower()
-                print(f"Checking element text for status in {filepath}: {text}")
                 if text in ["firstclass", "international"]:
                     status = text
-                    print(f"Found status in {filepath}: {status}")
-            if not status:
-                print(f"No status found in {filepath}")
 
             # Extract set status
             set_status = ""
@@ -265,7 +264,6 @@ def process_file_and_get_data(filepath):
                         data.append([title, sku, adjusted_qty, "", "", "",
                                      price, link, customer, address, platform, status,
                                      main_img_url, set_status, component_info])
-                        print(f"Appending data for {filepath}: Status = {status}")
 
                 except Exception as e:
                     print(f"Error parsing a product in {filepath}: {e}")
