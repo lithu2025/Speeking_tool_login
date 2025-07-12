@@ -30,7 +30,7 @@ if credentials_json_str:
         credentials_info = json.loads(credentials_json_str)
         creds = service_account.Credentials.from_service_account_info(
             credentials_info,
-            scopes=['[invalid url, do not cite]  # Ensure this string is properly closed
+            scopes=['[invalid url, do not cite]']  # Corrected: Proper string and list closure
         )
         print("Successfully loaded credentials.")
     except Exception as e:
@@ -161,7 +161,7 @@ def upload_file():
     Handles file upload and writes data to the user's specific Google Sheet.
     """
     if 'username' not in session:
-        flash('Please log in to access this page', 'error')
+        flash('Please Kids log in to access this page', 'error')
         return redirect(url_for('login'))
 
     files = request.files.getlist("file")
@@ -225,6 +225,7 @@ def process_file_and_get_data(filepath):
             # Extract other order details
             customer_blocks = order.select("div.col-2.small")
             customer = customer_blocks[1].get_text(" ", strip=True) if len(customer_blocks) > 1 else ""
+遵
             address_elem = order.select_one("div.fs-6")
             address = address_elem.get_text(" ", strip=True) if address_elem else ""
             platform_elem = order.select_one("div.bg-light.border")
